@@ -1,71 +1,88 @@
-from datetime import datetime
-from cv2 import *
-import os 
-import numpy as np
+#!/usr/bin/env python3
+"""
+Motion Detection Camera - Entry Point
 
-video = VideoCapture(0)
-val,frame = video.read()
-last_frame = frame
-threshold = 200000
+Detects movement via webcam and records video when motion is detected.
 
-record_buffer_max = 15
-record_bufer = 0
+Usage:
+    python main.py                    # Run with defaults
+    python main.py --threshold 100000 # More sensitive
+    python main.py --camera 1         # Use camera 1
+    python main.py --no-preview       # Run headless
+"""
 
-fourcc = VideoWriter_fourcc(*'XVID')
-numfiles = len(next(os.walk('output_files'))[2])
-output = VideoWriter("output_files/"+str(numfiles)+".avi",fourcc,30,(int(video.get(3)),int(video.get(4))))
+import argparse
+import sys
 
-while True:
-    now = datetime.now()
-    val, frame = video.read()
-    net_difference = 0.0
+from motion_detector import MotionDetector
 
-    gray_curr = cvtColor(frame, COLOR_BGR2GRAY)
-    gray_last = cvtColor(last_frame, COLOR_BGR2GRAY)
 
-    diff = subtract(gray_curr, gray_last)
-    print("size diff ", diff )
-    print("diff\n", diff)
-    w = np.size(diff, 0)
-    h = np.size(diff, 1)
-
-    for i in range(0,w):
-        for j in range(0, h):
-            if i%5 == 0 & j%5 == 0:
-                #r = diff[i,j]
-                #g = diff[i,j]
-                #b = diff[i,j]
-                x = diff[i, j]
-
-                net_difference += x #(r+g+b)
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Motion detection camera with automatic recording",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     
-    imshow("Movement", diff)
-
-    if net_difference > threshold:
-        record_bufer = record_buffer_max
-
-    putText(frame, now.strftime("%d/%m/%Y %H:%M:%S"), (int(video.get(3)) - 250, int(video.get(4) - 50)), FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255),2)
-
-    if record_bufer<0:
-        putText(frame, 'Not moving',(20,20), FONT_HERSHEY_COMPLEX, 0.6, (0,255,0),2)
-    else:
-        output.write(frame)
-        putText(frame, 'Moving',(20,20), FONT_HERSHEY_COMPLEX, 0.6, (0,0,255),2)
-        
+    parser.add_argument(
+        "-c", "--camera",
+        type=int,
+        default=0,
+        help="Camera device ID",
+    )
     
-    record_bufer -= 1
-    if record_bufer < -100:
-        record_bufer = 100
-
-    imshow("Live", frame)
-    last_frame = frame
-
-    if waitKey(1) & 0xFF == ord('q'):
-        break
-
-video.release()
-output.release()
-destroyAllWindows()
-
+    parser.add_argument(
+        "-t", "--threshold",
+        type=int,
+        default=200000,
+        help="Motion sensitivity threshold (lower = more sensitive)",
+    )
     
+    parser.add_argument(
+        "-b", "--buffer",
+        type=int,
+        default=15,
+        help="Frames to keep recording after motion stops",
+    )
+    
+    parser.add_argument(
+        "-o", "--output",
+        type=str,
+        default="output_files",
+        help="Output directory for recordings",
+    )
+    
+    parser.add_argument(
+        "--no-preview",
+        action="store_true",
+        help="Run without preview windows (headless mode)",
+    )
+    
+    return parser.parse_args()
 
+
+def main() -> int:
+    """Main entry point."""
+    args = parse_args()
+    
+    try:
+        with MotionDetector(
+            camera_id=args.camera,
+            threshold=args.threshold,
+            record_buffer_frames=args.buffer,
+            output_dir=args.output,
+            show_preview=not args.no_preview,
+        ) as detector:
+            detector.run()
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("\nInterrupted by user")
+        return 0
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
