@@ -1,0 +1,12 @@
+# Recorded output files
+output_files/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -107,8 +107,9 @@ class MotionDetector:
             self._writer.release()
         
         filename = self._get_next_filename()
+        actual_fps = self._video.get(cv2.CAP_PROP_FPS) or 30
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self._writer = cv2.VideoWriter(filename, fourcc, 30, self._frame_size)
+        self._writer = cv2.VideoWriter(filename, fourcc, actual_fps, self._frame_size)
         self._is_recording = True
         print(f"Recording started: {filename}")
     
@@ -129,7 +130,7 @@ class MotionDetector:
         """
         gray_curr = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray_last = cv2.cvtColor(self._last_frame, cv2.COLOR_BGR2GRAY)
-        diff = cv2.subtract(gray_curr, gray_last)
+        diff = cv2.absdiff(gray_curr, gray_last)
         motion = int(np.sum(diff))
         return motion, diff
     
